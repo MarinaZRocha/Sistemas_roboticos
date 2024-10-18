@@ -11,7 +11,7 @@ def create_directory(directory):
         os.makedirs(directory)
 
 # Definindo as dimensões do tabuleiro de xadrez
-CHECKERBOARD = (6, 8)
+CHECKERBOARD = (6, 4)
 
 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
@@ -25,7 +25,7 @@ objp[0, :, :2] = np.mgrid[0:CHECKERBOARD[0], 0:CHECKERBOARD[1]].T.reshape(-1, 2)
 prev_img_shape = None
 
 # Extraindo o caminho das imagens
-images = glob.glob('/home/marina/sist_robotics/Sistemas_roboticos/perception/images/*.jpg')
+images = glob.glob('/home/marina/sist_robotics/Sistemas_roboticos/perception/dataset_iPad/*.jpg')
 
 if len(images) == 0:
     print("Nenhuma imagem encontrada. Verifique o caminho das imagens.")
@@ -62,7 +62,7 @@ for i, fname in enumerate(images):
     # Ajustar a janela para se adaptar à imagem
     cv2.namedWindow('img', cv2.WINDOW_NORMAL)
     cv2.imshow('img', img)
-    cv2.waitKey(10)
+    cv2.waitKey(0)
 
 cv2.destroyAllWindows()
 
@@ -83,7 +83,7 @@ else:
 
         # Corrigir a distorção da imagem
         h, w = img.shape[:2]
-        new_camera_mtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1, (w, h))  # Ajuste o valor de zoom aqui (0.8)
+        new_camera_mtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 0.8, (w, h))  # Ajuste o valor de zoom aqui (0.8)
         undistorted_img = cv2.undistort(img, mtx, dist, None, new_camera_mtx)
 
         # Aplicar a região de interesse (ROI) para cortar as bordas indesejadas
@@ -101,7 +101,7 @@ else:
         num += 1
 
     # Salvar os dados da calibração em um arquivo .YAML
-    file_name = "/home/marina/sist_robotics/Sistemas_roboticos/perception/img_calib.yaml"
+    file_name = "/home/marina/sist_robotics/Sistemas_roboticos/perception/calib.yaml"
     fs = cv2.FileStorage(file_name, cv2.FILE_STORAGE_WRITE)
 
     # Escrevendo os dados no arquivo
