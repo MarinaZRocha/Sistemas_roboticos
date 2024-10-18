@@ -5,130 +5,110 @@ import numpy as np
 import os
 import glob
 
-# Function to create directories if they don't exist
+# Função para criar diretórios se não existirem
 def create_directory(directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-# Define checkerboard dimensions and square size
-checkerboard = (6, 4)
-square_size = 20  # Size of each square (e.g., in mm)
+# Definindo as dimensões do tabuleiro de xadrez
+CHECKERBOARD = (6, 8)
 
 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
-# Create vectors to store 3D and 2D points
+# Criando vetores para armazenar pontos 3D e 2D
 objpoints = []
 imgpoints = []
 
-# Define the world coordinates for 3D points (with physical size)
-objp = np.zeros((1, checkerboard[0] * checkerboard[1], 3), np.float32)
-objp[0, :, :2] = np.mgrid[0:checkerboard[0], 0:checkerboard[1]].T.reshape(-1, 2) * square_size
+# Definindo as coordenadas do mundo para os pontos 3D
+objp = np.zeros((1, CHECKERBOARD[0] * CHECKERBOARD[1], 3), np.float32)
+objp[0, :, :2] = np.mgrid[0:CHECKERBOARD[0], 0:CHECKERBOARD[1]].T.reshape(-1, 2)
+prev_img_shape = None
 
-# Extract paths of the images
-images = glob.glob('/home/marina/sist_robotics/Sistemas_roboticos/perception/images2/*.jpg')
+# Extraindo o caminho das imagens
+images = glob.glob('/home/marina/sist_robotics/Sistemas_roboticos/perception/images/*.jpg')
 
 if len(images) == 0:
-    print("No images found. Please check the image path.")
+    print("Nenhuma imagem encontrada. Verifique o caminho das imagens.")
 else:
-    print(f"{len(images)} images found.")
+    print(f"{len(images)} imagens encontradas.")
 
-# Initialize a counter for saving images
+# Inicializando o contador para salvar as imagens
 num = 0
 
-# Directories to save the distorted and corrected images
-distorted_dir = '/home/marina/sist_robotics/Sistemas_roboticos/perception/distorcida/'
-corrected_dir = '/home/marina/sist_robotics/Sistemas_roboticos/perception/corrigida/'
+# Diretórios para salvar as imagens distorcidas e corrigidas
+distorcida_dir = '/home/marina/sist_robotics/Sistemas_roboticos/perception/distorcida/'
+corrigida_dir = '/home/marina/sist_robotics/Sistemas_roboticos/perception/corrigida/'
 
-# Create directories if they don't exist
-create_directory(distorted_dir)
-create_directory(corrected_dir)
+# Criando os diretórios se não existirem
+create_directory(distorcida_dir)
+create_directory(corrigida_dir)
 
 for i, fname in enumerate(images):
     img = cv2.imread(fname)
-    if img is None:
-        print(f"Error loading image {fname}.")
-        continue
-
-    # Resize for display purposes only (reduce the size if images are large)
-    display_img = cv2.resize(img, (800, 600)) if img.shape[1] > 800 else img
-
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-    # Find the chessboard corners
-    ret, corners = cv2.findChessboardCorners(gray, checkerboard, cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_FAST_CHECK + cv2.CALIB_CB_NORMALIZE_IMAGE)
+    # Encontrar os cantos do tabuleiro de xadrez
+    ret, corners = cv2.findChessboardCorners(gray, CHECKERBOARD, cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_FAST_CHECK + cv2.CALIB_CB_NORMALIZE_IMAGE)
 
     if ret:
         objpoints.append(objp)
-        # Refine the 2D corner coordinates
+        # Refinando as coordenadas dos pontos 2D
         corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
         imgpoints.append(corners2)
 
-        # Draw and display the corners
-        cv2.drawChessboardCorners(display_img, checkerboard, corners2, ret)
+        # Desenhar e exibir os cantos
+        img = cv2.drawChessboardCorners(img, CHECKERBOARD, corners2, ret)
 
-        # Print progress information
-        print(f"Image {i + 1}: {os.path.basename(fname)} processed successfully.")
-        
-        # Show the image briefly for verification
-        cv2.namedWindow('img', cv2.WINDOW_NORMAL)
-        cv2.imshow('img', display_img)
-        cv2.waitKey(100)  # Show each image for 100ms (adjust as needed)
+    # Ajustar a janela para se adaptar à imagem
+    cv2.namedWindow('img', cv2.WINDOW_NORMAL)
+    cv2.imshow('img', img)
+    cv2.waitKey(10)
 
 cv2.destroyAllWindows()
 
-# Check if valid images were found for calibration
+# Verificação se as imagens foram encontradas
 if len(objpoints) == 0 or len(imgpoints) == 0:
-    print("Error: No valid images found for calibration.")
+    print("Erro: Nenhuma imagem válida encontrada para calibração.")
 else:
-    # Perform camera calibration
-    print("Starting calibration...")
+    # Execução da calibração da câmera
     ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
-    print(f"Calibration completed successfully. Mean error: {ret}")
+    print(f"Calibração realizada com sucesso. Erro médio: {ret}")
 
-    print("Camera matrix: \n", mtx)
-    print("Distortion coefficients: \n", dist)
+    print("Matriz da câmera: \n", mtx)
+    print("Coeficientes de distorção: \n", dist)
 
-    # Function to calculate and print reprojection errors
-    def calculate_reprojection_error(objpoints, imgpoints, rvecs, tvecs, mtx, dist):
-        total_error = 0
-        for i in range(len(objpoints)):
-            imgpoints2, _ = cv2.projectPoints(objpoints[i], rvecs[i], tvecs[i], mtx, dist)
-            error = cv2.norm(imgpoints[i], imgpoints2, cv2.NORM_L2) / len(imgpoints2)
-            total_error += error
-        mean_error = total_error / len(objpoints)
-        return mean_error
-
-    reprojection_error = calculate_reprojection_error(objpoints, imgpoints, rvecs, tvecs, mtx, dist)
-    print(f"Total reprojection error: {reprojection_error}")
-
-    # Generate and save images showing distortion and correction
+    # Gerar imagens mostrando a distorção e a correção
     for i, fname in enumerate(images):
         img = cv2.imread(fname)
-        if img is None:
-            continue
 
-        # Correct the distortion in the image
-        undistorted_img = cv2.undistort(img, mtx, dist, None, mtx)
+        # Corrigir a distorção da imagem
+        h, w = img.shape[:2]
+        new_camera_mtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1, (w, h))  # Ajuste o valor de zoom aqui (0.8)
+        undistorted_img = cv2.undistort(img, mtx, dist, None, new_camera_mtx)
 
-        # Save the original and corrected images
-        distorted_path = os.path.join(distorted_dir, f'img{num}_distorted.png')
-        corrected_path = os.path.join(corrected_dir, f'img{num}_corrected.png')
+        # Aplicar a região de interesse (ROI) para cortar as bordas indesejadas
+        x, y, w, h = roi
+        undistorted_img = undistorted_img[y:y+h, x:x+w]  # Cortar a imagem
 
-        cv2.imwrite(distorted_path, img)
-        cv2.imwrite(corrected_path, undistorted_img)
-
-        print(f"Distorted and corrected images saved as img{num}.png")
+        # Salvar a imagem original (com distorção) e a imagem corrigida (sem distorção)
+        distorcida_path = os.path.join(distorcida_dir, f'img{num}_distorcida.png')
+        corrigida_path = os.path.join(corrigida_dir, f'img{num}_corrigida.png')
+        
+        cv2.imwrite(distorcida_path, img)
+        cv2.imwrite(corrigida_path, undistorted_img)
+        
+        print(f"Imagens distorcida e corrigida salvas como img{num}.png")
         num += 1
 
-    # Save calibration data to a .YAML file
+    # Salvar os dados da calibração em um arquivo .YAML
     file_name = "/home/marina/sist_robotics/Sistemas_roboticos/perception/img_calib.yaml"
     fs = cv2.FileStorage(file_name, cv2.FILE_STORAGE_WRITE)
 
-    # Write the calibration data to the file
+    # Escrevendo os dados no arquivo
     fs.write("mtx", mtx)
     fs.write("dist", dist)
     fs.write("err", ret)
 
-    fs.release()  # Close the file
+    fs.release()  # Fechar o arquivo
 
-    print(f"Calibration data saved to {file_name}")
+    print(f"Dados de calibração salvos em {file_name}")
